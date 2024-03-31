@@ -1,12 +1,12 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from sqlmodel import  Session, SQLModel, create_engine, select
 from .models import * 
 
 DATABASE_URL = "postgresql://abuashja:JLR0rj8nOGCE@ep-purple-bonus-a5mp6spb.us-east-2.aws.neon.tech/todos?sslmode=require"
 
 engine = create_engine(DATABASE_URL, echo=True)
-
 def create_db_and_tables():
+
     SQLModel.metadata.create_all(engine)
 
 app = FastAPI()
@@ -29,9 +29,9 @@ def create_hero(hero: HeroCreate):
         return db_hero
 
 @app.get("/heroes/", response_model=list[HeroRead])
-def read_heroes():
+def read_heroes(offset: int = 0, limit: int = Query(default=100, le=100)):
     with Session(engine) as session:
-        heroes = session.exec(select(Hero)).all()
+        heroes = session.exec(select(Hero).offset(offset).limit(limit)).all()
         return heroes
     
 @app.get("/heroes/{hero_id}", response_model=HeroRead)
