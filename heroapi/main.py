@@ -6,8 +6,10 @@ DATABASE_URL = "postgresql://abuashja:JLR0rj8nOGCE@ep-purple-bonus-a5mp6spb.us-e
 
 engine = create_engine(DATABASE_URL, echo=True)
 def create_db_and_tables():
-
     SQLModel.metadata.create_all(engine)
+
+def hash_password(password: str) -> str:
+    return f"not really hashed {password} heehehe"
 
 app = FastAPI()
 
@@ -21,8 +23,10 @@ def welcome_fast():
 
 @app.post("/heroes/", response_model=HeroRead)
 def create_hero(hero: HeroCreate):
+    hashed_password = hash_password(hero.password)
     with Session(engine) as session:
-        db_hero = Hero.model_validate(hero)
+        extra_data = {"hashed_password": hashed_password}
+        db_hero = Hero.model_validate(hero, update=extra_data)
         session.add(db_hero)
         session.commit()
         session.refresh(db_hero)
@@ -41,3 +45,21 @@ def read_hero(hero_id: int):
         if not hero:
             raise HTTPException(status_code=404, detail="Hero not found")
         return hero
+    
+@app.patch("/heroes/{hero_id}", response_model=HeroRead)
+def update_hero(hero_id: int, hero: HeroUpdate):
+    with Session(engine) as session:
+        db_hero = session.get(Hero, hero_id)
+        if not db_hero:
+            raise HTTPException(status_code=404, detail="Hero not found")
+        hero_data = hero.model_dump(exclude_unset=True)
+        extra_data = {}
+        if "password" in hero_data:
+            password = hero_data["password"]
+            hashed_password = hash_password(password)
+            extra_data["hashed_password"] = hashed_password
+        db_hero.sqlmodel_update(hero_data, update=extra_data)
+        session.add(db_hero)
+        session.commit()
+        session.refresh(db_hero)
+        return db_hero
